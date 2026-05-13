@@ -114,8 +114,15 @@
                     <table class="w-full">
                         <?php foreach($teams as $team): ?>
                         <tr>
-                            <td class="py-4 font-bold"><?php echo $team['name']; ?></td>
+                            <td class="py-4 font-bold"><?php echo $team['name']; ?> <span class="text-gray-400 font-normal ml-1">(<?php echo $team['country']; ?>)</span></td>
                             <td class="py-4 text-right font-black text-secondary"><?php echo $team['total_points']; ?></td>
+                            <td class="py-4 text-right">
+                                <a href="delete-team?team_id=<?php echo $team['id']; ?>" 
+                                   class="bg-red-50 text-red-600 px-3 py-2 rounded-lg hover:bg-red-600 hover:text-white transition-all text-xs font-bold"
+                                   onclick="return confirm('ATENÇÃO: Isso excluirá a turma e TODOS os seus lançamentos. Deseja continuar?')">
+                                    <i class="fas fa-trash mr-1"></i> Excluir
+                                </a>
+                            </td>
                         </tr>
                         <?php endforeach; ?>
                     </table>
@@ -130,8 +137,8 @@
                                 <div class="font-black text-sm"><?php echo $don['team_name']; ?></div>
                                 <div class="text-xs text-gray-400"><?php echo $don['points_awarded']; ?> pts</div>
                             </div>
-                            <a href="/admin/delete-donation?donation_id=<?php echo $don['id']; ?>" class="text-red-500 hover:text-red-700 transition-colors p-2" onclick="return confirm('Tem certeza que deseja excluir?')">
-                                <i class="fas fa-trash"></i>
+                            <a href="delete-donation?donation_id=<?php echo $don['id']; ?>" class="text-red-500 hover:text-red-700 transition-colors p-2" onclick="return confirm('Tem certeza que deseja excluir?')">
+                                <i class="fas fa-trash mr-1"></i> Excluir
                             </a>
                         </div>
                         <?php endforeach; ?>

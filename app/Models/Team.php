@@ -12,5 +12,11 @@ class Team {
         $db = Database::getInstance();
         $db->exec("UPDATE teams SET total_points = MAX(0, total_points + ($points)) WHERE id = $teamId");
     }
+
+    public static function delete($id) {
+        $db = Database::getInstance();
+        $db->exec("DELETE FROM donations WHERE team_id = $id");
+        return $db->exec("DELETE FROM teams WHERE id = $id");
+    }
 }
 ?>

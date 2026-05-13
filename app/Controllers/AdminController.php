@@ -45,15 +45,25 @@ class AdminController {
     }
 
     public function deleteDonation() {
+        checkLogin();
         $id = isset($_REQUEST['donation_id']) ? intval($_REQUEST['donation_id']) : 0;
-        $success = ($id > 0 && Donation::delete($id));
-        
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] == 'XMLHttpRequest')) {
-            header('Content-Type: application/json');
-            echo json_encode(['success' => $success]);
-            exit;
+        file_put_contents('debug.txt', "Attempting to delete donation ID: $id\n", FILE_APPEND);
+        if ($id > 0) {
+            $res = Donation::delete($id);
+            file_put_contents('debug.txt', "Donation::delete result: " . ($res ? 'SUCCESS' : 'FAILURE') . "\n", FILE_APPEND);
         }
-        
+        header("Location: /admin/dashboard");
+        exit;
+    }
+
+    public function deleteTeam() {
+        checkLogin();
+        $id = isset($_REQUEST['team_id']) ? intval($_REQUEST['team_id']) : 0;
+        file_put_contents('debug.txt', "Attempting to delete team ID: $id\n", FILE_APPEND);
+        if ($id > 0) {
+            $res = Team::delete($id);
+            file_put_contents('debug.txt', "Team::delete result: " . ($res ? 'SUCCESS' : 'FAILURE') . "\n", FILE_APPEND);
+        }
         header("Location: /admin/dashboard");
         exit;
     }

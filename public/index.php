@@ -63,6 +63,10 @@ switch ($url) {
         $adminController->deleteDonation();
         break;
 
+    case 'admin/delete-team':
+        $adminController->deleteTeam();
+        break;
+
     case 'logout':
         session_destroy();
         header("Location: /");

@@ -22,17 +22,8 @@ class Donation {
             $tid = intval($don['team_id']);
             $pts = intval($don['points_awarded']);
             
-            try {
-                $db->exec("BEGIN TRANSACTION");
-                $db->exec("UPDATE teams SET total_points = total_points - $pts WHERE id = $tid");
-                $db->exec("DELETE FROM donations WHERE id = $id");
-                $db->exec("UPDATE teams SET total_points = 0 WHERE id = $tid AND total_points < 0");
-                $db->exec("COMMIT");
-                return true;
-            } catch (Exception $e) {
-                $db->exec("ROLLBACK");
-                return false;
-            }
+            $db->exec("UPDATE teams SET total_points = MAX(0, total_points - $pts) WHERE id = $tid");
+            return $db->exec("DELETE FROM donations WHERE id = $id");
         }
         return false;
     }
