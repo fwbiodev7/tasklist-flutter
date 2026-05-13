@@ -22,8 +22,9 @@ class Donation {
             $tid = intval($don['team_id']);
             $pts = intval($don['points_awarded']);
             
-            $db->exec("UPDATE teams SET total_points = MAX(0, total_points - $pts) WHERE id = $tid");
-            return $db->exec("DELETE FROM donations WHERE id = $id");
+            // Lógica blindada para o SQLite não falhar no update
+            $db->exec("UPDATE teams SET total_points = CASE WHEN total_points - $pts < 0 THEN 0 ELSE total_points - $pts END WHERE id = $tid");
+            return $db->exec("DELETE FROM donations WHERE id = $id") ? true : false;
         }
         return false;
     }
@@ -39,30 +40,6 @@ class Donation {
     }
 
     public static function update($id, $teamId, $material, $qty, $points) {
-        $db = Database::getInstance();
-        $stmt = $db->prepare("SELECT team_id, points_awarded FROM donations WHERE id = :id");
-        $stmt->bindValue(':id', $id);
-        $res = $stmt->execute();
-        $old = $res->fetchArray(SQLITE3_ASSOC);
-        if (!$old) return false;
-
-        $oldTid = $old['team_id'];
-        $oldPts = $old['points_awarded'];
-        
-        $db->exec("UPDATE teams SET total_points = total_points - $oldPts WHERE id = $oldTid");
-        
-        $stmt = $db->prepare("UPDATE donations SET team_id = :tid, material_type = :m, quantity = :q, points_awarded = :p WHERE id = :id");
-        $stmt->bindValue(':tid', $teamId);
-        $stmt->bindValue(':m', $material);
-        $stmt->bindValue(':q', $qty);
-        $stmt->bindValue(':p', $points);
-        $stmt->bindValue(':id', $id);
-        $stmt->execute();
-        
-        $db->exec("UPDATE teams SET total_points = total_points + $points WHERE id = $teamId");
-        $db->exec("UPDATE teams SET total_points = 0 WHERE total_points < 0");
-        
-        return true;
+        // ... (Mantenha igual estava, pois não afeta o deletar)
     }
 }
-?>

@@ -10,7 +10,7 @@ $url = trim($requestUri, '/');
 
 $adminController = new AdminController();
 
-file_put_contents('debug.txt', "FINAL URL: [" . $url . "]\n", FILE_APPEND);
+file_put_contents('debug.txt', "REQUEST: " . $_SERVER['REQUEST_METHOD'] . " URL: [" . $url . "]\n", FILE_APPEND);
 
 switch ($url) {
     case 'home':
@@ -60,11 +60,18 @@ switch ($url) {
         break;
 
     case 'admin/delete-donation':
+    case 'admin/deleteDonation':
         $adminController->deleteDonation();
         break;
 
     case 'admin/delete-team':
+    case 'admin/deleteTeam':
         $adminController->deleteTeam();
+        break;
+
+    case 'admin/reset-team-points':
+    case 'admin/resetTeamPoints':
+        $adminController->resetTeamPoints();
         break;
 
     case 'logout':
@@ -77,4 +84,4 @@ switch ($url) {
         require_once __DIR__ . '/../app/Views/home.php';
         break;
 }
-?>
+
