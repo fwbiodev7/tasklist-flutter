@@ -1,112 +1,316 @@
 <?php
+
+require_once __DIR__ . '/../../core/helpers.php';
+require_once __DIR__ . '/../Models/Team.php';
+require_once __DIR__ . '/../Models/Donation.php';
+
 class AdminController {
-    
-    // Essa é a função que estava faltando e causando o erro fatal
+
     public function dashboard() {
+
         checkLogin();
+
         $teams = Team::getAll();
-        $donations = Donation::getRecent(50);
-        
+        $donations = Donation::getRecent();
+
         $db = Database::getInstance();
-        
-        // Estatísticas
-        $totalDonations = $db->querySingle("SELECT COUNT(*) FROM donations");
-        $totalPoints = $db->querySingle("SELECT SUM(points_awarded) FROM donations") ?? 0;
-        
-        $res = $db->query("SELECT material_type, SUM(quantity) as total_qty, SUM(points_awarded) as total_pts FROM donations GROUP BY material_type");
+
+        $totalPointsQuery = $db->query("
+            SELECT SUM(total_points) as total
+            FROM teams
+        ");
+
+        $totalPointsResult = $totalPointsQuery->fetchArray(SQLITE3_ASSOC);
+
+        $totalPoints = $totalPointsResult['total'] ?? 0;
+
+        $totalDonationsQuery = $db->query("
+            SELECT COUNT(*) as total
+            FROM donations
+        ");
+
+        $totalDonationsResult = $totalDonationsQuery->fetchArray(SQLITE3_ASSOC);
+
+        $totalDonations = $totalDonationsResult['total'] ?? 0;
+
+        $statsQuery = $db->query("
+            SELECT
+                material_type,
+                SUM(quantity) as total_qty
+            FROM donations
+            GROUP BY material_type
+        ");
+
         $stats = [];
-        if ($res) {
-            while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
-                $stats[$row['material_type']] = $row;
-            }
+
+        while ($row = $statsQuery->fetchArray(SQLITE3_ASSOC)) {
+            $stats[$row['material_type']] = $row;
         }
-        
+
         require_once __DIR__ . '/../Views/admin/dashboard.php';
     }
 
     public function addDonation() {
+
         checkLogin();
+
         $teams = Team::getAll();
+
         require_once __DIR__ . '/../Views/admin/add_donation.php';
     }
 
     public function saveDonation() {
+
         checkLogin();
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $tid = $_POST['team_id'];
-            $mat = $_POST['material_type'];
-            $qty = $_POST['quantity'];
-            $pts = calculatePoints($mat, $qty);
-            
-            if (Donation::create($tid, $mat, $qty, $pts)) {
-                Team::updatePoints($tid, $pts);
-                header("Location: /admin/dashboard?success=1");
-            } else {
-                header("Location: /admin/dashboard?error=1");
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: /admin/add-donation');
+            exit;
+        }
+
+        $teamId = intval($_POST['team_id']);
+        $materialType = trim($_POST['material_type']);
+        $quantity = floatval($_POST['quantity']);
+        $points = intval($_POST['points_awarded']);
+
+        $db = Database::getInstance();
+
+        $stmt = $db->prepare("
+            INSERT INTO donations (
+                team_id,
+                material_type,
+                quantity,
+                points_awarded
+            )
+            VALUES (
+                :team_id,
+                :material_type,
+                :quantity,
+                :points_awarded
+            )
+        ");
+
+        $stmt->bindValue(':team_id', $teamId, SQLITE3_INTEGER);
+        $stmt->bindValue(':material_type', $materialType, SQLITE3_TEXT);
+        $stmt->bindValue(':quantity', $quantity, SQLITE3_FLOAT);
+        $stmt->bindValue(':points_awarded', $points, SQLITE3_INTEGER);
+
+        $stmt->execute();
+
+        $update = $db->prepare("
+            UPDATE teams
+            SET total_points = total_points + :points
+            WHERE id = :id
+        ");
+
+        $update->bindValue(':points', $points, SQLITE3_INTEGER);
+        $update->bindValue(':id', $teamId, SQLITE3_INTEGER);
+
+        $update->execute();
+
+        header('Location: /admin/dashboard?success=1');
+        exit;
+    }
+
+    public function deleteDonation() {
+
+        checkLogin();
+
+        header('Content-Type: application/json');
+
+        try {
+
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Método inválido'
+                ]);
+
+                exit;
             }
-            exit;
+
+            $id = isset($_POST['id'])
+                ? intval($_POST['id'])
+                : 0;
+
+            if ($id <= 0) {
+
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'ID inválido'
+                ]);
+
+                exit;
+            }
+
+            $db = Database::getInstance();
+
+            $getDonation = $db->prepare("
+                SELECT *
+                FROM donations
+                WHERE id = :id
+            ");
+
+            $getDonation->bindValue(':id', $id, SQLITE3_INTEGER);
+
+            $donationResult = $getDonation->execute();
+
+            $donation = $donationResult->fetchArray(SQLITE3_ASSOC);
+
+            if (!$donation) {
+
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Doação não encontrada'
+                ]);
+
+                exit;
+            }
+
+            $teamId = intval($donation['team_id']);
+            $points = intval($donation['points_awarded']);
+
+            $updateTeam = $db->prepare("
+                UPDATE teams
+                SET total_points = CASE
+                    WHEN total_points - :points < 0 THEN 0
+                    ELSE total_points - :points
+                END
+                WHERE id = :team_id
+            ");
+
+            $updateTeam->bindValue(':points', $points, SQLITE3_INTEGER);
+            $updateTeam->bindValue(':team_id', $teamId, SQLITE3_INTEGER);
+
+            $updateTeam->execute();
+
+            $delete = $db->prepare("
+                DELETE FROM donations
+                WHERE id = :id
+            ");
+
+            $delete->bindValue(':id', $id, SQLITE3_INTEGER);
+
+            $result = $delete->execute();
+
+            echo json_encode([
+                'success' => $result ? true : false,
+                'deleted_id' => $id
+            ]);
+
+        } catch(Exception $e) {
+
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
         }
-    }
 
-    // Função de deletar - Agora configurada para aceitar o ID via POST ou URL
-    public function deleteDonation($id = null) {
-        checkLogin();
-        
-        if (!$id) {
-            $id = isset($_POST['donation_id']) ? intval($_POST['donation_id']) : (isset($_POST['id']) ? intval($_POST['id']) : 0);
-        }
-
-        file_put_contents('debug.txt', "DELETE DONATION ATTEMPT: ID=$id, POST=" . json_encode($_POST) . "\n", FILE_APPEND);
-
-        $success = false;
-        if ($id > 0) {
-            $success = Donation::delete($id);
-        }
-
-        file_put_contents('debug.txt', "DELETE DONATION RESULT: " . ($success ? 'SUCCESS' : 'FAILURE') . "\n", FILE_APPEND);
-
-        // Se for uma chamada do JavaScript (AJAX)
-        if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest') {
-            header('Content-Type: application/json');
-            echo json_encode(['success' => $success]);
-            exit;
-        }
-
-        header("Location: /admin/dashboard");
         exit;
     }
 
-    public function deleteTeam($id = null) {
-        checkLogin();
-        if (!$id) $id = isset($_POST['team_id']) ? intval($_POST['team_id']) : (isset($_POST['id']) ? intval($_POST['id']) : 0);
-        
-        file_put_contents('debug.txt', "DELETE TEAM ATTEMPT: ID=$id\n", FILE_APPEND);
-        $success = Team::delete($id);
-        file_put_contents('debug.txt', "DELETE TEAM RESULT: " . ($success ? 'SUCCESS' : 'FAILURE') . "\n", FILE_APPEND);
+    public function deleteTeam() {
 
-        if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest') {
-            header('Content-Type: application/json');
-            echo json_encode(['success' => $success]);
-            exit;
+        checkLogin();
+
+        header('Content-Type: application/json');
+
+        try {
+
+            $id = isset($_POST['id'])
+                ? intval($_POST['id'])
+                : 0;
+
+            if ($id <= 0) {
+
+                echo json_encode([
+                    'success' => false
+                ]);
+
+                exit;
+            }
+
+            $db = Database::getInstance();
+
+            $deleteDonations = $db->prepare("
+                DELETE FROM donations
+                WHERE team_id = :id
+            ");
+
+            $deleteDonations->bindValue(':id', $id, SQLITE3_INTEGER);
+
+            $deleteDonations->execute();
+
+            $deleteTeam = $db->prepare("
+                DELETE FROM teams
+                WHERE id = :id
+            ");
+
+            $deleteTeam->bindValue(':id', $id, SQLITE3_INTEGER);
+
+            $result = $deleteTeam->execute();
+
+            echo json_encode([
+                'success' => $result ? true : false
+            ]);
+
+        } catch(Exception $e) {
+
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
         }
-        header("Location: /admin/dashboard");
+
         exit;
     }
 
-    public function resetTeamPoints($id = null) {
-        checkLogin();
-        if (!$id) $id = isset($_POST['team_id']) ? intval($_POST['team_id']) : (isset($_POST['id']) ? intval($_POST['id']) : 0);
-        
-        file_put_contents('debug.txt', "RESET POINTS ATTEMPT: ID=$id\n", FILE_APPEND);
-        $success = Team::resetPoints($id);
-        file_put_contents('debug.txt', "RESET POINTS RESULT: " . ($success ? 'SUCCESS' : 'FAILURE') . "\n", FILE_APPEND);
+    public function resetTeamPoints() {
 
-        if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest') {
-            header('Content-Type: application/json');
-            echo json_encode(['success' => $success]);
-            exit;
+        checkLogin();
+
+        header('Content-Type: application/json');
+
+        try {
+
+            $id = isset($_POST['id'])
+                ? intval($_POST['id'])
+                : 0;
+
+            if ($id <= 0) {
+
+                echo json_encode([
+                    'success' => false
+                ]);
+
+                exit;
+            }
+
+            $db = Database::getInstance();
+
+            $stmt = $db->prepare("
+                UPDATE teams
+                SET total_points = 0
+                WHERE id = :id
+            ");
+
+            $stmt->bindValue(':id', $id, SQLITE3_INTEGER);
+
+            $result = $stmt->execute();
+
+            echo json_encode([
+                'success' => $result ? true : false
+            ]);
+
+        } catch(Exception $e) {
+
+            echo json_encode([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
         }
-        header("Location: /admin/dashboard");
+
         exit;
     }
 }
