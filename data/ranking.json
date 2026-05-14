@@ -1,0 +1,17 @@
+[
+  {
+    "name": "Turma 3A",
+    "country": "Brasil",
+    "total_points": 150
+  },
+  {
+    "name": "Turma 2B",
+    "country": "Alemanha",
+    "total_points": 120
+  },
+  {
+    "name": "Turma 1C",
+    "country": "Japão",
+    "total_points": 90
+  }
+]

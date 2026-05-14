@@ -176,7 +176,9 @@ $materials = [
     <footer class="bg-primary text-white py-12 px-6 text-center">
         <div class="max-w-7xl mx-auto">
             <p class="font-black text-xl mb-4 tracking-tighter">COPA SUSTENTÁVEL</p>
-            <p class="text-white/40 text-xs font-bold uppercase tracking-[0.2em]">&copy; 2026 Gincana Solidária e Sustentável</p>
+            <p class="text-white/40 text-xs font-bold uppercase tracking-[0.2em]">&copy; 2026 Interclasse Solidário e Sustentável.
+                Desenvolvido por <a href="https://github.com/fwbiodev7" target="_blank" class="text-white">Fabio</a> e <a href="https://github.com/ujan029" target="_blank" class="text-white">João Pedro Matias</a>. 
+            </p>
         </div>
     </footer>
 
