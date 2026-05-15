@@ -27,24 +27,32 @@ const MATERIAL_RULES = {
 };
 
 // =====================================================
-// INICIALIZAÇÃO — cria times se Firestore estiver vazio
+// INICIALIZAÇÃO — sincroniza times que estiverem faltando
 // =====================================================
 async function initDB() {
-    const snap = await db.collection('teams').limit(1).get();
-    if (!snap.empty) return;
-
+    const snap = await db.collection('teams').get();
+    const existingIds = snap.docs.map(doc => doc.id);
+    
     const batch = db.batch();
+    let added = 0;
+    
     TEAMS_INITIAL.forEach(t => {
-        const ref = db.collection('teams').doc(t.id);
-        batch.set(ref, {
-            name:         t.name,
-            country:      t.country,
-            total_points: 0,
-            created_at:   firebase.firestore.FieldValue.serverTimestamp()
-        });
+        if (!existingIds.includes(t.id)) {
+            const ref = db.collection('teams').doc(t.id);
+            batch.set(ref, {
+                name:         t.name,
+                country:      t.country,
+                total_points: 0,
+                created_at:   firebase.firestore.FieldValue.serverTimestamp()
+            });
+            added++;
+        }
     });
-    await batch.commit();
-    console.log('✅ Times inicializados no Firestore!');
+    
+    if (added > 0) {
+        await batch.commit();
+        console.log(`✅ ${added} times adicionados ao Firestore!`);
+    }
 }
 
 // =====================================================
