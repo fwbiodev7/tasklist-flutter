@@ -3,38 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel | Copa Sustentável (LocalStorage Demo)</title>
-
+    <title>Painel | Copa Sustentável</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="js/firebase-config.js"></script>
     <script src="js/app.js"></script>
-
     <script>
         tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#1E392A',
-                        secondary: '#FF6B2C'
-                    }
-                }
-            }
+            theme: { extend: { colors: { primary: '#1E392A', secondary: '#FF6B2C' } } }
         };
     </script>
-
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-
     <style>
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
-
 <body class="bg-gray-100 font-sans text-primary">
 
     <script>
@@ -52,160 +38,103 @@
     <div class="flex min-h-screen">
 
         <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-72 bg-primary text-white p-8 transform -translate-x-full lg:translate-x-0 lg:static transition-transform duration-300 ease-in-out flex flex-col">
-
             <div class="flex items-center space-x-3 mb-12">
                 <i class="fas fa-medal text-2xl text-secondary"></i>
-                <span class="font-black text-xl uppercase tracking-tighter">
-                    Painel ADM
-                </span>
+                <span class="font-black text-xl uppercase tracking-tighter">Painel ADM</span>
             </div>
-
             <nav class="space-y-4 flex-1">
-
-                <a href="dashboard.html"
-                   class="flex items-center space-x-4 bg-white/10 p-5 rounded-3xl font-black text-sm uppercase tracking-widest">
-                    <i class="fas fa-chart-line text-secondary"></i>
-                    <span>Dashboard</span>
+                <a href="dashboard.html" class="flex items-center space-x-4 bg-white/10 p-5 rounded-3xl font-black text-sm uppercase tracking-widest">
+                    <i class="fas fa-chart-line text-secondary"></i><span>Dashboard</span>
                 </a>
-
-                <a href="add_donation.html"
-                   class="flex items-center space-x-4 hover:bg-white/5 p-5 rounded-3xl font-black text-sm uppercase tracking-widest text-white/60 hover:text-white transition-all">
-                    <i class="fas fa-plus-circle"></i>
-                    <span>Novo Lançamento</span>
+                <a href="add_donation.html" class="flex items-center space-x-4 hover:bg-white/5 p-5 rounded-3xl font-black text-sm uppercase tracking-widest text-white/60 hover:text-white transition-all">
+                    <i class="fas fa-plus-circle"></i><span>Novo Lançamento</span>
                 </a>
-
             </nav>
-
             <div class="mt-auto pt-8 border-t border-white/10">
-
                 <a href="#" onclick="localStorage.removeItem('admin_logged_in'); window.location.href='index.html'; return false;"
                    class="flex items-center space-x-4 text-red-400 hover:text-red-300 font-black text-sm uppercase tracking-widest p-4">
-                    <i class="fas fa-sign-out-alt"></i>
-                    <span>Sair</span>
+                    <i class="fas fa-sign-out-alt"></i><span>Sair</span>
                 </a>
-
             </div>
-
         </aside>
 
-        <div id="overlay"
-             onclick="toggleMenu()"
-             class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden"></div>
+        <div id="overlay" onclick="toggleMenu()" class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden"></div>
 
         <main class="flex-1 p-6 lg:p-12">
 
             <div class="mb-12">
-                <h1 class="text-4xl font-black tracking-tighter">
-                    Dashboard
-                </h1>
-
-                <p class="text-gray-400 font-bold uppercase text-[10px] tracking-[0.2em] mt-2">
-                    Gincana Solidária (Versão Funcional LocalStorage)
-                </p>
+                <h1 class="text-4xl font-black tracking-tighter">Dashboard</h1>
+                <p class="text-gray-400 font-bold uppercase text-[10px] tracking-[0.2em] mt-2">Gincana Solidária • Firebase Firestore</p>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-
                 <div class="bg-primary text-white p-8 rounded-[2.5rem] shadow-2xl">
-                    <p class="text-white/50 font-black text-xs uppercase tracking-widest mb-2">
-                        Pontos Totais
-                    </p>
-
-                    <h3 id="stat-total-points" class="text-5xl font-black tracking-tighter">
-                        0
-                    </h3>
+                    <p class="text-white/50 font-black text-xs uppercase tracking-widest mb-2">Pontos Totais</p>
+                    <h3 id="stat-total-points" class="text-5xl font-black tracking-tighter">—</h3>
                 </div>
-
                 <div class="bg-secondary text-white p-8 rounded-[2.5rem] shadow-2xl">
-                    <p class="text-white/50 font-black text-xs uppercase tracking-widest mb-2">
-                        Lançamentos
-                    </p>
-
-                    <h3 id="stat-total-donations" class="text-5xl font-black tracking-tighter">
-                        0
-                    </h3>
+                    <p class="text-white/50 font-black text-xs uppercase tracking-widest mb-2">Lançamentos</p>
+                    <h3 id="stat-total-donations" class="text-5xl font-black tracking-tighter">—</h3>
                 </div>
-
                 <div class="lg:col-span-2 bg-white p-8 rounded-[2.5rem] shadow-xl flex items-center overflow-x-auto no-scrollbar space-x-6" id="stat-materials">
-                    <!-- Gerado via JS -->
+                    <span class="text-gray-300 font-bold text-sm">Carregando...</span>
                 </div>
-
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
-
                 <div class="bg-white rounded-[3rem] p-10 shadow-xl">
-
-                    <h2 class="text-2xl font-black mb-8">
-                        Ranking Geral
-                    </h2>
-
+                    <h2 class="text-2xl font-black mb-8">Ranking Geral</h2>
                     <table class="w-full text-sm">
-                        <tbody id="table-ranking">
-                            <!-- Gerado via JS -->
-                        </tbody>
+                        <tbody id="table-ranking"><tr><td class="py-4 text-gray-300">Carregando...</td></tr></tbody>
                     </table>
-
                 </div>
-
                 <div class="bg-white rounded-[3rem] p-10 shadow-xl">
-
-                    <h2 class="text-2xl font-black mb-8">
-                        Últimos Lançamentos
-                    </h2>
-
+                    <h2 class="text-2xl font-black mb-8">Últimos Lançamentos</h2>
                     <div id="list-donations" class="space-y-4 max-h-[600px] overflow-y-auto no-scrollbar">
-                        <!-- Gerado via JS -->
+                        <p class="text-gray-300">Carregando...</p>
                     </div>
-
                 </div>
-
             </div>
 
         </main>
-
     </div>
 
     <script>
         function toggleMenu() {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('overlay');
-            sidebar.classList.toggle('-translate-x-full');
-            overlay.classList.toggle('hidden');
+            document.getElementById('sidebar').classList.toggle('-translate-x-full');
+            document.getElementById('overlay').classList.toggle('hidden');
         }
 
-        function loadDashboard() {
-            const data = getDB();
-            const stats = getStats();
+        const matIcons = {
+            'higiene':    'fa-soap',
+            'vestuario':  'fa-tshirt',
+            'leite':      'fa-box-open',
+            'reciclavel': 'fa-recycle',
+            'lacre':      'fa-check-circle'
+        };
 
-            // Atualiza Top Stats
-            document.getElementById('stat-total-points').innerText = stats.totalPoints.toLocaleString('pt-BR');
+        async function loadDashboard() {
+            const [data, stats] = await Promise.all([getDB(), getStats()]);
+
+            // Stats cards
+            document.getElementById('stat-total-points').innerText    = stats.totalPoints.toLocaleString('pt-BR');
             document.getElementById('stat-total-donations').innerText = stats.totalDonations;
 
-            // Atualiza Material Stats
-            const matIcons = {
-                'higiene': 'fa-soap',
-                'vestuario': 'fa-tshirt',
-                'leite': 'fa-box-open',
-                'reciclável': 'fa-recycle',
-                'lacre': 'fa-check-circle'
-            };
-            
-            let htmlMaterials = '';
+            // Material stats
+            let htmlMat = '';
             for (const [type, icon] of Object.entries(matIcons)) {
-                htmlMaterials += `
+                htmlMat += `
                     <div class="flex-shrink-0 flex flex-col items-center">
                         <div class="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center mb-1 text-primary">
                             <i class="fas ${icon}"></i>
                         </div>
                         <p class="text-[9px] font-black text-gray-400 uppercase">${type}</p>
-                        <p class="font-black">${stats.materialStats[type].toLocaleString('pt-BR')}</p>
-                    </div>
-                `;
+                        <p class="font-black">${(stats.materialStats[type] || 0).toLocaleString('pt-BR')}</p>
+                    </div>`;
             }
-            document.getElementById('stat-materials').innerHTML = htmlMaterials;
+            document.getElementById('stat-materials').innerHTML = htmlMat;
 
-            // Atualiza Ranking Table
+            // Ranking table
             let htmlRanking = '';
             data.teams.forEach(team => {
                 htmlRanking += `
@@ -213,48 +142,44 @@
                         <td class="py-4 font-bold">${team.name}</td>
                         <td class="py-4 text-right font-black text-secondary">${team.total_points} pts</td>
                         <td class="py-4 text-right flex space-x-2 justify-end">
-                            <button type="button" onclick="handleAction('reset', ${team.id}, 'Zerar pontos?')" class="p-2 text-amber-600 hover:bg-amber-50 rounded-lg"><i class="fas fa-undo"></i></button>
-                            <button type="button" onclick="handleAction('deleteTeam', ${team.id}, 'Excluir turma?')" class="p-2 text-red-600 hover:bg-red-50 rounded-lg"><i class="fas fa-trash"></i></button>
+                            <button type="button" onclick="handleAction('reset','${team.id}','Zerar pontos de ${team.name}?')" class="p-2 text-amber-600 hover:bg-amber-50 rounded-lg"><i class="fas fa-undo"></i></button>
+                            <button type="button" onclick="handleAction('deleteTeam','${team.id}','Excluir ${team.name} e todas suas doações?')" class="p-2 text-red-600 hover:bg-red-50 rounded-lg"><i class="fas fa-trash"></i></button>
                         </td>
-                    </tr>
-                `;
+                    </tr>`;
             });
-            document.getElementById('table-ranking').innerHTML = htmlRanking;
+            document.getElementById('table-ranking').innerHTML = htmlRanking || '<tr><td class="py-4 text-gray-300">Sem times cadastrados.</td></tr>';
 
-            // Atualiza Ultimos Lançamentos
-            let htmlDonations = '';
+            // Donations list
+            let htmlDon = '';
             data.donations.forEach(don => {
-                htmlDonations += `
+                const date = don.created_at?.toDate ? don.created_at.toDate().toLocaleDateString('pt-BR') : '—';
+                htmlDon += `
                     <div class="flex justify-between items-center p-5 bg-gray-50 rounded-2xl border border-transparent hover:border-gray-200 transition-all">
                         <div>
                             <div class="font-black text-sm">${don.team_name}</div>
-                            <div class="text-xs text-gray-400 uppercase font-bold tracking-widest mt-1">${don.points_awarded} PTS • ${don.material_type} (${don.quantity})</div>
+                            <div class="text-xs text-gray-400 uppercase font-bold tracking-widest mt-1">${don.points_awarded} PTS • ${don.material_type} (${don.quantity}) • ${date}</div>
                         </div>
-                        <button type="button" onclick="handleAction('deleteDonation', ${don.id}, 'Excluir lançamento?')" class="text-red-500 hover:bg-red-50 p-3 rounded-xl transition-colors">
+                        <button type="button" onclick="handleAction('deleteDonation','${don.id}','Excluir este lançamento?')" class="text-red-500 hover:bg-red-50 p-3 rounded-xl transition-colors">
                             <i class="fas fa-trash"></i>
                         </button>
-                    </div>
-                `;
+                    </div>`;
             });
-            document.getElementById('list-donations').innerHTML = htmlDonations;
+            document.getElementById('list-donations').innerHTML = htmlDon || '<p class="text-gray-300 text-sm">Nenhum lançamento ainda.</p>';
         }
 
-        function handleAction(action, id, message) {
-            if(confirm(message)) {
-                if(action === 'reset') {
-                    resetTeamPoints(id);
-                } else if(action === 'deleteTeam') {
-                    deleteTeam(id);
-                } else if(action === 'deleteDonation') {
-                    deleteDonation(id);
-                }
-                loadDashboard(); // Recarrega tela sem dar F5
-            }
+        async function handleAction(action, id, message) {
+            if (!confirm(message)) return;
+            const btn = event.currentTarget;
+            if (btn) btn.disabled = true;
+
+            if (action === 'reset')          await resetTeamPoints(id);
+            else if (action === 'deleteTeam')     await deleteTeam(id);
+            else if (action === 'deleteDonation') await deleteDonation(id);
+
+            await loadDashboard();
         }
 
-        // Carrega os dados ao inicializar
         window.onload = loadDashboard;
     </script>
-
 </body>
 </html>

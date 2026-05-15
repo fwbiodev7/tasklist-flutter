@@ -18,7 +18,7 @@ switch ($url) {
         $ranking = Team::getAll();
         require_once __DIR__ . '/../app/Views/home.php';
         break;
-    
+
     case 'api/ranking':
         $ranking = Team::getAll();
         header('Content-Type: application/json');
@@ -33,11 +33,13 @@ switch ($url) {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user = $_POST['username'];
             $pass = $_POST['password'];
-            $db = Database::getInstance();
+            $db   = Database::getInstance();
+
             $stmt = $db->prepare("SELECT * FROM admins WHERE username = :u");
-            $stmt->bindValue(':u', $user);
-            $res = $stmt->execute();
-            $row = $res->fetchArray(SQLITE3_ASSOC);
+            $stmt->bindValue(':u', $user, PDO::PARAM_STR);
+            $stmt->execute();
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
             if ($row && password_verify($pass, $row['password'])) {
                 $_SESSION['admin_id'] = $row['id'];
                 header("Location: /admin/dashboard");
@@ -84,4 +86,3 @@ switch ($url) {
         require_once __DIR__ . '/../app/Views/home.php';
         break;
 }
-

@@ -7,7 +7,6 @@ test/
 android/
 ios/
 lib/
-database.sqlite
 debug.txt
 *.log
 vendor/

@@ -3,9 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Novo Lançamento | Copa Sustentável (LocalStorage)</title>
+    <title>Novo Lançamento | Copa Sustentável</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="js/firebase-config.js"></script>
     <script src="js/app.js"></script>
     <script>
         tailwind.config = { theme: { extend: { colors: { primary: '#1E392A', secondary: '#FF6B2C' } } } }
@@ -21,7 +25,7 @@
             window.location.href = 'login.html';
         }
     </script>
-    <!-- Mobile Back Button -->
+
     <div class="lg:hidden fixed top-6 left-6 z-[60]">
         <a href="dashboard.html" class="w-12 h-12 bg-white rounded-2xl shadow-xl flex items-center justify-center text-primary">
             <i class="fas fa-arrow-left text-xl"></i>
@@ -38,7 +42,7 @@
             <div>
                 <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-2">Turma / Nação</label>
                 <select name="team_id" id="team_id" required class="w-full p-6 bg-gray-50 rounded-3xl border-none outline-none font-bold text-primary focus:ring-2 focus:ring-secondary appearance-none">
-                    <!-- Preenchido via JS -->
+                    <option value="">Carregando turmas...</option>
                 </select>
             </div>
 
@@ -48,17 +52,18 @@
                     <option value="higiene">Higiene (02 pts/un)</option>
                     <option value="vestuario">Vestuário (05 pts/peça)</option>
                     <option value="leite">Leite Caixinha (10 pts/litro)</option>
-                    <option value="reciclável">Recicláveis (05 pts/3un)</option>
+                    <option value="reciclavel">Recicláveis (05 pts/3un)</option>
                     <option value="lacre">Lacre PET 2L (30 pts/garrafa)</option>
                 </select>
             </div>
 
             <div>
                 <label class="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-2">Quantidade</label>
-                <input type="number" id="quantity" name="quantity" step="any" required placeholder="Digite a quantidade..." class="w-full p-6 bg-gray-50 rounded-3xl border-none outline-none font-bold text-primary focus:ring-2 focus:ring-secondary">
+                <input type="number" id="quantity" name="quantity" step="any" min="1" required placeholder="Digite a quantidade..."
+                       class="w-full p-6 bg-gray-50 rounded-3xl border-none outline-none font-bold text-primary focus:ring-2 focus:ring-secondary">
             </div>
 
-            <button type="submit" class="w-full bg-primary text-white p-7 rounded-3xl font-black shadow-xl hover:bg-[#2D5A42] transition-all transform hover:-translate-y-1 active:scale-95 uppercase tracking-widest">
+            <button type="submit" id="btn-submit" class="w-full bg-primary text-white p-7 rounded-3xl font-black shadow-xl hover:bg-[#2D5A42] transition-all transform hover:-translate-y-1 active:scale-95 uppercase tracking-widest">
                 REGISTRAR PONTUAÇÃO
             </button>
         </form>
@@ -69,26 +74,40 @@
     </div>
 
     <script>
-        window.onload = () => {
-            const db = getDB();
+        window.onload = async () => {
+            await initDB();
+            const data = await getDB();
             let options = '';
-            db.teams.forEach(t => {
+            data.teams.forEach(t => {
                 options += `<option value="${t.id}">${t.name} - ${t.country}</option>`;
             });
             document.getElementById('team_id').innerHTML = options;
         };
 
-        document.getElementById('form-donation').addEventListener('submit', function(e) {
+        document.getElementById('form-donation').addEventListener('submit', async function(e) {
             e.preventDefault();
-            const teamId = document.getElementById('team_id').value;
+            const btn = document.getElementById('btn-submit');
+            btn.disabled = true;
+            btn.textContent = 'Registrando...';
+
+            const teamId       = document.getElementById('team_id').value;
             const materialType = document.getElementById('material_type').value;
-            const quantity = document.getElementById('quantity').value;
-            
-            if(addDonation(teamId, materialType, quantity)) {
-                alert("Doação registrada com sucesso!");
-                window.location.href = "dashboard.html";
-            } else {
-                alert("Erro ao registrar doação.");
+            const quantity     = document.getElementById('quantity').value;
+
+            try {
+                const ok = await addDonation(teamId, materialType, quantity);
+                if (ok) {
+                    alert('✅ Doação registrada com sucesso!');
+                    window.location.href = 'dashboard.html';
+                } else {
+                    alert('❌ Erro ao registrar. Verifique os dados.');
+                    btn.disabled = false;
+                    btn.textContent = 'REGISTRAR PONTUAÇÃO';
+                }
+            } catch (err) {
+                alert('❌ Erro: ' + err.message);
+                btn.disabled = false;
+                btn.textContent = 'REGISTRAR PONTUAÇÃO';
             }
         });
     </script>

@@ -1,0 +1,16 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Leitura pública — qualquer pessoa pode ver ranking e doações
+    match /teams/{teamId} {
+      allow read: if true;
+      allow write: if true; // Simplifique para projeto escolar
+    }
+
+    match /donations/{donId} {
+      allow read: if true;
+      allow write: if true;
+    }
+  }
+}

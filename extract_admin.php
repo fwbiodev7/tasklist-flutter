@@ -1,6 +1,9 @@
 <?php
-$db = new SQLite3('database.sqlite');
-$res = $db->query('SELECT * FROM admins');
-while($row = $res->fetchArray(SQLITE3_ASSOC)) {
-    print_r($row);
-}
+// Utilitário de extração de admins — usa MySQL (XAMPP)
+require_once __DIR__ . '/core/Database.php';
+
+$db  = Database::getInstance();
+$res = $db->query('SELECT id, username, created_at FROM admins');
+
+header('Content-Type: application/json');
+echo json_encode($res->fetchAll(PDO::FETCH_ASSOC), JSON_PRETTY_PRINT);

@@ -10,40 +10,27 @@ class AdminController {
 
         checkLogin();
 
-        $teams = Team::getAll();
+        $teams     = Team::getAll();
         $donations = Donation::getRecent();
 
         $db = Database::getInstance();
 
-        $totalPointsQuery = $db->query("
-            SELECT SUM(total_points) as total
-            FROM teams
-        ");
+        $totalPointsQuery  = $db->query("SELECT SUM(total_points) as total FROM teams");
+        $totalPointsResult = $totalPointsQuery->fetch(PDO::FETCH_ASSOC);
+        $totalPoints       = $totalPointsResult['total'] ?? 0;
 
-        $totalPointsResult = $totalPointsQuery->fetchArray(SQLITE3_ASSOC);
-
-        $totalPoints = $totalPointsResult['total'] ?? 0;
-
-        $totalDonationsQuery = $db->query("
-            SELECT COUNT(*) as total
-            FROM donations
-        ");
-
-        $totalDonationsResult = $totalDonationsQuery->fetchArray(SQLITE3_ASSOC);
-
-        $totalDonations = $totalDonationsResult['total'] ?? 0;
+        $totalDonationsQuery  = $db->query("SELECT COUNT(*) as total FROM donations");
+        $totalDonationsResult = $totalDonationsQuery->fetch(PDO::FETCH_ASSOC);
+        $totalDonations       = $totalDonationsResult['total'] ?? 0;
 
         $statsQuery = $db->query("
-            SELECT
-                material_type,
-                SUM(quantity) as total_qty
+            SELECT material_type, SUM(quantity) as total_qty
             FROM donations
             GROUP BY material_type
         ");
 
         $stats = [];
-
-        while ($row = $statsQuery->fetchArray(SQLITE3_ASSOC)) {
+        while ($row = $statsQuery->fetch(PDO::FETCH_ASSOC)) {
             $stats[$row['material_type']] = $row;
         }
 
@@ -68,33 +55,21 @@ class AdminController {
             exit;
         }
 
-        $teamId = intval($_POST['team_id']);
+        $teamId       = intval($_POST['team_id']);
         $materialType = trim($_POST['material_type']);
-        $quantity = floatval($_POST['quantity']);
-        $points = intval($_POST['points_awarded']);
+        $quantity     = floatval($_POST['quantity']);
+        $points       = intval($_POST['points_awarded']);
 
         $db = Database::getInstance();
 
         $stmt = $db->prepare("
-            INSERT INTO donations (
-                team_id,
-                material_type,
-                quantity,
-                points_awarded
-            )
-            VALUES (
-                :team_id,
-                :material_type,
-                :quantity,
-                :points_awarded
-            )
+            INSERT INTO donations (team_id, material_type, quantity, points_awarded)
+            VALUES (:team_id, :material_type, :quantity, :points_awarded)
         ");
-
-        $stmt->bindValue(':team_id', $teamId, SQLITE3_INTEGER);
-        $stmt->bindValue(':material_type', $materialType, SQLITE3_TEXT);
-        $stmt->bindValue(':quantity', $quantity, SQLITE3_FLOAT);
-        $stmt->bindValue(':points_awarded', $points, SQLITE3_INTEGER);
-
+        $stmt->bindValue(':team_id',       $teamId,       PDO::PARAM_INT);
+        $stmt->bindValue(':material_type', $materialType, PDO::PARAM_STR);
+        $stmt->bindValue(':quantity',      $quantity);
+        $stmt->bindValue(':points_awarded',$points,       PDO::PARAM_INT);
         $stmt->execute();
 
         $update = $db->prepare("
@@ -102,10 +77,8 @@ class AdminController {
             SET total_points = total_points + :points
             WHERE id = :id
         ");
-
-        $update->bindValue(':points', $points, SQLITE3_INTEGER);
-        $update->bindValue(':id', $teamId, SQLITE3_INTEGER);
-
+        $update->bindValue(':points', $points, PDO::PARAM_INT);
+        $update->bindValue(':id',     $teamId, PDO::PARAM_INT);
         $update->execute();
 
         header('Location: /admin/dashboard?success=1');
@@ -121,90 +94,49 @@ class AdminController {
         try {
 
             if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-
-                echo json_encode([
-                    'success' => false,
-                    'error' => 'Método inválido'
-                ]);
-
+                echo json_encode(['success' => false, 'error' => 'Método inválido']);
                 exit;
             }
 
-            $id = isset($_POST['id'])
-                ? intval($_POST['id'])
-                : 0;
+            $id = isset($_POST['id']) ? intval($_POST['id']) : 0;
 
             if ($id <= 0) {
-
-                echo json_encode([
-                    'success' => false,
-                    'error' => 'ID inválido'
-                ]);
-
+                echo json_encode(['success' => false, 'error' => 'ID inválido']);
                 exit;
             }
 
             $db = Database::getInstance();
 
-            $getDonation = $db->prepare("
-                SELECT *
-                FROM donations
-                WHERE id = :id
-            ");
-
-            $getDonation->bindValue(':id', $id, SQLITE3_INTEGER);
-
-            $donationResult = $getDonation->execute();
-
-            $donation = $donationResult->fetchArray(SQLITE3_ASSOC);
+            $getDonation = $db->prepare("SELECT * FROM donations WHERE id = :id");
+            $getDonation->bindValue(':id', $id, PDO::PARAM_INT);
+            $getDonation->execute();
+            $donation = $getDonation->fetch(PDO::FETCH_ASSOC);
 
             if (!$donation) {
-
-                echo json_encode([
-                    'success' => false,
-                    'error' => 'Doação não encontrada'
-                ]);
-
+                echo json_encode(['success' => false, 'error' => 'Doação não encontrada']);
                 exit;
             }
 
-            $teamId = intval($donation['team_id']);
-            $points = intval($donation['points_awarded']);
+            $teamId = (int) $donation['team_id'];
+            $points = (int) $donation['points_awarded'];
 
             $updateTeam = $db->prepare("
                 UPDATE teams
-                SET total_points = CASE
-                    WHEN total_points - :points < 0 THEN 0
-                    ELSE total_points - :points
-                END
+                SET total_points = GREATEST(0, total_points - :points)
                 WHERE id = :team_id
             ");
-
-            $updateTeam->bindValue(':points', $points, SQLITE3_INTEGER);
-            $updateTeam->bindValue(':team_id', $teamId, SQLITE3_INTEGER);
-
+            $updateTeam->bindValue(':points',  $points, PDO::PARAM_INT);
+            $updateTeam->bindValue(':team_id', $teamId, PDO::PARAM_INT);
             $updateTeam->execute();
 
-            $delete = $db->prepare("
-                DELETE FROM donations
-                WHERE id = :id
-            ");
-
-            $delete->bindValue(':id', $id, SQLITE3_INTEGER);
-
+            $delete = $db->prepare("DELETE FROM donations WHERE id = :id");
+            $delete->bindValue(':id', $id, PDO::PARAM_INT);
             $result = $delete->execute();
 
-            echo json_encode([
-                'success' => $result ? true : false,
-                'deleted_id' => $id
-            ]);
+            echo json_encode(['success' => $result, 'deleted_id' => $id]);
 
-        } catch(Exception $e) {
-
-            echo json_encode([
-                'success' => false,
-                'error' => $e->getMessage()
-            ]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
 
         exit;
@@ -218,49 +150,27 @@ class AdminController {
 
         try {
 
-            $id = isset($_POST['id'])
-                ? intval($_POST['id'])
-                : 0;
+            $id = isset($_POST['id']) ? intval($_POST['id']) : 0;
 
             if ($id <= 0) {
-
-                echo json_encode([
-                    'success' => false
-                ]);
-
+                echo json_encode(['success' => false]);
                 exit;
             }
 
             $db = Database::getInstance();
 
-            $deleteDonations = $db->prepare("
-                DELETE FROM donations
-                WHERE team_id = :id
-            ");
-
-            $deleteDonations->bindValue(':id', $id, SQLITE3_INTEGER);
-
+            $deleteDonations = $db->prepare("DELETE FROM donations WHERE team_id = :id");
+            $deleteDonations->bindValue(':id', $id, PDO::PARAM_INT);
             $deleteDonations->execute();
 
-            $deleteTeam = $db->prepare("
-                DELETE FROM teams
-                WHERE id = :id
-            ");
-
-            $deleteTeam->bindValue(':id', $id, SQLITE3_INTEGER);
-
+            $deleteTeam = $db->prepare("DELETE FROM teams WHERE id = :id");
+            $deleteTeam->bindValue(':id', $id, PDO::PARAM_INT);
             $result = $deleteTeam->execute();
 
-            echo json_encode([
-                'success' => $result ? true : false
-            ]);
+            echo json_encode(['success' => $result]);
 
-        } catch(Exception $e) {
-
-            echo json_encode([
-                'success' => false,
-                'error' => $e->getMessage()
-            ]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
 
         exit;
@@ -274,41 +184,23 @@ class AdminController {
 
         try {
 
-            $id = isset($_POST['id'])
-                ? intval($_POST['id'])
-                : 0;
+            $id = isset($_POST['id']) ? intval($_POST['id']) : 0;
 
             if ($id <= 0) {
-
-                echo json_encode([
-                    'success' => false
-                ]);
-
+                echo json_encode(['success' => false]);
                 exit;
             }
 
             $db = Database::getInstance();
 
-            $stmt = $db->prepare("
-                UPDATE teams
-                SET total_points = 0
-                WHERE id = :id
-            ");
-
-            $stmt->bindValue(':id', $id, SQLITE3_INTEGER);
-
+            $stmt = $db->prepare("UPDATE teams SET total_points = 0 WHERE id = :id");
+            $stmt->bindValue(':id', $id, PDO::PARAM_INT);
             $result = $stmt->execute();
 
-            echo json_encode([
-                'success' => $result ? true : false
-            ]);
+            echo json_encode(['success' => $result]);
 
-        } catch(Exception $e) {
-
-            echo json_encode([
-                'success' => false,
-                'error' => $e->getMessage()
-            ]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
 
         exit;

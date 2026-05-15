@@ -1,150 +1,171 @@
-// app.js - Banco de dados local usando LocalStorage para GitHub Pages
+// app.js — Copa Sustentável | Firebase Firestore
 
-const DB_KEY = 'copa_sustentavel_data_v2';
+// =====================================================
+// TIMES INICIAIS (populados automaticamente no 1º acesso)
+// =====================================================
+const TEAMS_INITIAL = [
+    { id: "team_01", name: "2º LOG",  country: "Brasil"         },
+    { id: "team_02", name: "2º ELE",  country: "México"         },
+    { id: "team_03", name: "1º LOG",  country: "Estados Unidos" },
+    { id: "team_04", name: "3º SIST", country: "Nova Zelândia"  },
+    { id: "team_05", name: "1º ELE",  country: "Marrocos"       },
+    { id: "team_06", name: "2º PROP", country: "França"         },
+    { id: "team_07", name: "1º SIST", country: "Portugal"       },
+    { id: "team_08", name: "2º SIST", country: "Alemanha"       },
+    { id: "team_09", name: "3º PROP", country: "Inglaterra"     },
+    { id: "team_10", name: "1º INF",  country: "Espanha"        },
+    { id: "team_11", name: "3º LOG",  country: "Catar"          },
+    { id: "team_12", name: "3º ELE",  country: "Coreia do Sul"  },
+];
 
-// Dados iniciais (apenas se o banco estiver vazio)
-const defaultData = {
-    teams: [
-        { "id": 1, "name": "2º LOG", "country": "Brasil", "total_points": 0 },
-        { "id": 2, "name": "2º ELE", "country": "México", "total_points": 0 },
-        { "id": 3, "name": "1º LOG", "country": "Estados Unidos", "total_points": 0 },
-        { "id": 4, "name": "3º SIST", "country": "Nova Zelândia", "total_points": 0 },
-        { "id": 5, "name": "1º ELE", "country": "Marrocos", "total_points": 0 },
-        { "id": 6, "name": "2º PROP", "country": "França", "total_points": 0 },
-        { "id": 7, "name": "1º SIST", "country": "Portugal", "total_points": 0 },
-        { "id": 8, "name": "2º SIST", "country": "Alemanha", "total_points": 0 },
-        { "id": 9, "name": "3º PROP", "country": "Inglaterra", "total_points": 0 },
-        { "id": 10, "name": "1º INF", "country": "Espanha", "total_points": 0 },
-        { "id": 11, "name": "3º LOG", "country": "Catar", "total_points": 0 },
-        { "id": 12, "name": "3º ELE", "country": "Coreia do Sul", "total_points": 0 }
-    ],
-    donations: [],
-    material_rules: {
-        'higiene': { points: 2, per: 1 },
-        'vestuario': { points: 5, per: 1 },
-        'leite': { points: 10, per: 1 },
-        'reciclável': { points: 5, per: 3 },
-        'lacre': { points: 30, per: 1 }
-    }
+const MATERIAL_RULES = {
+    'higiene':    { points: 2  },
+    'vestuario':  { points: 5  },
+    'leite':      { points: 10 },
+    'reciclavel': { points: 5, per: 3 },
+    'lacre':      { points: 30 },
 };
 
-// Inicializa o banco de dados
-function initDB() {
-    if (!localStorage.getItem(DB_KEY)) {
-        localStorage.setItem(DB_KEY, JSON.stringify(defaultData));
-    }
-}
+// =====================================================
+// INICIALIZAÇÃO — cria times se Firestore estiver vazio
+// =====================================================
+async function initDB() {
+    const snap = await db.collection('teams').limit(1).get();
+    if (!snap.empty) return;
 
-// Retorna todos os dados
-function getDB() {
-    initDB();
-    return JSON.parse(localStorage.getItem(DB_KEY));
-}
-
-// Salva os dados
-function saveDB(data) {
-    localStorage.setItem(DB_KEY, JSON.stringify(data));
-}
-
-// Recalcula os pontos totais de todas as turmas baseado nas doações
-function recalculatePoints() {
-    const data = getDB();
-    
-    // Zera pontos de todos
-    data.teams.forEach(t => t.total_points = 0);
-    
-    // Soma os pontos das doações
-    data.donations.forEach(don => {
-        const team = data.teams.find(t => t.id === don.team_id);
-        if (team) {
-            team.total_points += don.points_awarded;
-        }
+    const batch = db.batch();
+    TEAMS_INITIAL.forEach(t => {
+        const ref = db.collection('teams').doc(t.id);
+        batch.set(ref, {
+            name:         t.name,
+            country:      t.country,
+            total_points: 0,
+            created_at:   firebase.firestore.FieldValue.serverTimestamp()
+        });
     });
-    
-    // Ordena o ranking
-    data.teams.sort((a, b) => b.total_points - a.total_points);
-    
-    saveDB(data);
+    await batch.commit();
+    console.log('✅ Times inicializados no Firestore!');
 }
 
-// Adiciona uma doação
-function addDonation(teamId, materialType, quantity) {
-    const data = getDB();
-    const rule = data.material_rules[materialType];
-    
-    if (!rule) return false;
-    
-    // Calcula pontos (Ex: a cada 3 recicláveis = 5 pts, então (qty / 3) * 5)
-    let points = 0;
-    if (materialType === 'reciclável') {
-        points = Math.floor(quantity / 3) * 5;
-    } else {
-        points = quantity * rule.points;
-    }
-    
-    const team = data.teams.find(t => t.id === parseInt(teamId));
-    if (!team) return false;
+// =====================================================
+// LEITURA COMPLETA
+// =====================================================
+async function getDB() {
+    await initDB();
+    const [teamsSnap, donationsSnap] = await Promise.all([
+        db.collection('teams').orderBy('total_points', 'desc').get(),
+        db.collection('donations').orderBy('created_at', 'desc').get(),
+    ]);
 
-    const newDonation = {
-        id: Date.now(), // ID único baseado no timestamp
-        team_id: team.id,
-        team_name: team.name,
+    const teams     = teamsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const donations = donationsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return { teams, donations };
+}
+
+// Listener em tempo real para o ranking
+function listenToRanking(callback) {
+    return db.collection('teams')
+        .orderBy('total_points', 'desc')
+        .onSnapshot(snap => {
+            const teams = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            callback(teams);
+        });
+}
+
+// =====================================================
+// CÁLCULO DE PONTOS
+// =====================================================
+function calcPoints(materialType, quantity) {
+    quantity = parseFloat(quantity);
+    if (materialType === 'reciclavel') return Math.floor(quantity / 3) * 5;
+    const rule = MATERIAL_RULES[materialType];
+    return rule ? quantity * rule.points : 0;
+}
+
+// =====================================================
+// ADICIONAR DOAÇÃO
+// =====================================================
+async function addDonation(teamId, materialType, quantity) {
+    quantity = parseFloat(quantity);
+    const points = calcPoints(materialType, quantity);
+    if (points <= 0) return false;
+
+    const teamDoc = await db.collection('teams').doc(teamId).get();
+    if (!teamDoc.exists) return false;
+
+    await db.collection('donations').add({
+        team_id:       teamId,
+        team_name:     teamDoc.data().name,
         material_type: materialType,
-        quantity: quantity,
+        quantity:      quantity,
         points_awarded: points,
-        created_at: new Date().toISOString()
-    };
-    
-    data.donations.unshift(newDonation); // Adiciona no início
-    saveDB(data);
-    recalculatePoints();
+        created_at:    firebase.firestore.FieldValue.serverTimestamp(),
+    });
+
+    await db.collection('teams').doc(teamId).update({
+        total_points: firebase.firestore.FieldValue.increment(points),
+    });
+
     return true;
 }
 
-// Deleta uma doação
-function deleteDonation(id) {
-    const data = getDB();
-    data.donations = data.donations.filter(d => d.id !== id);
-    saveDB(data);
-    recalculatePoints();
+// =====================================================
+// DELETAR DOAÇÃO
+// =====================================================
+async function deleteDonation(donationId) {
+    const donRef = db.collection('donations').doc(donationId);
+    const donDoc = await donRef.get();
+    if (!donDoc.exists) return;
+
+    const don = donDoc.data();
+    const teamRef = db.collection('teams').doc(don.team_id);
+    const teamDoc = await teamRef.get();
+    const current = teamDoc.exists ? (teamDoc.data().total_points || 0) : 0;
+
+    const batch = db.batch();
+    batch.update(teamRef, { total_points: Math.max(0, current - (don.points_awarded || 0)) });
+    batch.delete(donRef);
+    await batch.commit();
 }
 
-// Deleta uma turma e suas doações
-function deleteTeam(id) {
-    const data = getDB();
-    data.teams = data.teams.filter(t => t.id !== id);
-    data.donations = data.donations.filter(d => d.team_id !== id);
-    saveDB(data);
-    recalculatePoints();
+// =====================================================
+// DELETAR TURMA
+// =====================================================
+async function deleteTeam(teamId) {
+    const donSnap = await db.collection('donations').where('team_id', '==', teamId).get();
+    const batch = db.batch();
+    donSnap.docs.forEach(d => batch.delete(d.ref));
+    batch.delete(db.collection('teams').doc(teamId));
+    await batch.commit();
 }
 
-// Zera os pontos de uma turma (deleta suas doações)
-function resetTeamPoints(id) {
-    const data = getDB();
-    data.donations = data.donations.filter(d => d.team_id !== id);
-    saveDB(data);
-    recalculatePoints();
+// =====================================================
+// ZERAR PONTOS DA TURMA
+// =====================================================
+async function resetTeamPoints(teamId) {
+    const donSnap = await db.collection('donations').where('team_id', '==', teamId).get();
+    const batch = db.batch();
+    donSnap.docs.forEach(d => batch.delete(d.ref));
+    batch.update(db.collection('teams').doc(teamId), { total_points: 0 });
+    await batch.commit();
 }
 
-// Estatísticas para o Dashboard
-function getStats() {
-    const data = getDB();
+// =====================================================
+// ESTATÍSTICAS PARA O DASHBOARD
+// =====================================================
+async function getStats() {
+    const snap = await db.collection('donations').get();
     let totalPoints = 0;
-    let totalDonations = data.donations.length;
-    let materialStats = {
-        'higiene': 0, 'vestuario': 0, 'leite': 0, 'reciclável': 0, 'lacre': 0
-    };
-    
-    data.donations.forEach(don => {
-        totalPoints += don.points_awarded;
+    let totalDonations = snap.size;
+    let materialStats = { 'higiene': 0, 'vestuario': 0, 'leite': 0, 'reciclavel': 0, 'lacre': 0 };
+
+    snap.docs.forEach(d => {
+        const don = d.data();
+        totalPoints += don.points_awarded || 0;
         if (materialStats[don.material_type] !== undefined) {
-            materialStats[don.material_type] += parseInt(don.quantity);
+            materialStats[don.material_type] += parseFloat(don.quantity) || 0;
         }
     });
-    
-    return {
-        totalPoints,
-        totalDonations,
-        materialStats
-    };
+
+    return { totalPoints, totalDonations, materialStats };
 }

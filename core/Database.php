@@ -3,18 +3,30 @@ class Database {
     private static $instance = null;
     private $connection;
 
-   private function __construct() {
-    // Caminho direto para evitar erro de pasta
-    $path = 'C:\copa-sustentavel-site\database.sqlite';
-    
-    if (!file_exists($path)) {
-        die("ERRO: O arquivo nao esta em: " . $path);
+    private function __construct() {
+        $host    = 'localhost';
+        $dbname  = 'copa_sustentavel';
+        $user    = 'root';
+        $pass    = '';
+        $charset = 'utf8mb4';
+
+        $dsn = "mysql:host=$host;dbname=$dbname;charset=$charset";
+
+        $options = [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES   => false,
+        ];
+
+        try {
+            $this->connection = new PDO($dsn, $user, $pass, $options);
+        } catch (PDOException $e) {
+            die("ERRO de conexão com o banco de dados: " . $e->getMessage());
+        }
     }
-    $this->connection = new SQLite3($path);
-}
 
     public static function getInstance() {
-        if (self::$instance == null) {
+        if (self::$instance === null) {
             self::$instance = new Database();
         }
         return self::$instance->connection;

@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login | Gestão da Copa</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="js/firebase-config.js"></script>
+    <!-- bcryptjs para verificar senha no browser -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/2.4.3/bcrypt.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;900&display=swap');
         body { font-family: 'Outfit', sans-serif; }
@@ -12,26 +18,30 @@
     <script>
         tailwind.config = { theme: { extend: { colors: { primary: '#1E392A', secondary: '#FF6B2C' } } } }
     </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/2.4.3/bcrypt.min.js"></script>
 </head>
 <body class="bg-primary flex items-center justify-center min-h-screen p-6">
     <div class="bg-white p-10 lg:p-16 rounded-[3.5rem] shadow-2xl w-full max-w-lg border border-white/20">
         <div class="text-center mb-12">
             <h1 class="text-4xl font-black mb-2 tracking-tighter">Acesso Admin</h1>
-            <p class="text-gray-400 font-bold uppercase text-[10px] tracking-widest">Gincana Solidária (Versão GitHub Pages)</p>
+            <p class="text-gray-400 font-bold uppercase text-[10px] tracking-widest">Gincana Solidária • Firebase</p>
         </div>
 
         <form id="loginForm" class="space-y-6">
             <div class="relative group">
-                <input type="text" id="username" placeholder="Usuário" required class="w-full p-6 bg-gray-50 rounded-3xl border-none outline-none font-bold text-primary focus:ring-2 focus:ring-secondary transition">
+                <input type="text" id="username" placeholder="Usuário" required
+                       class="w-full p-6 bg-gray-50 rounded-3xl border-none outline-none font-bold text-primary focus:ring-2 focus:ring-secondary transition">
             </div>
             <div class="relative group">
-                <input type="password" id="password" placeholder="Senha" required class="w-full p-6 bg-gray-50 rounded-3xl border-none outline-none font-bold text-primary focus:ring-2 focus:ring-secondary transition">
+                <input type="password" id="password" placeholder="Senha" required
+                       class="w-full p-6 bg-gray-50 rounded-3xl border-none outline-none font-bold text-primary focus:ring-2 focus:ring-secondary transition">
             </div>
-            
-            <p id="error-msg" class="text-red-500 text-xs font-black text-center uppercase tracking-widest hidden">Credenciais Inválidas</p>
 
-            <button type="submit" class="w-full bg-primary text-white p-6 rounded-3xl font-black shadow-xl hover:bg-[#FF6B2C] transition-all transform hover:-translate-y-1 active:scale-95 uppercase tracking-widest">
+            <p id="error-msg" class="text-red-500 text-xs font-black text-center uppercase tracking-widest hidden">
+                Credenciais Inválidas
+            </p>
+
+            <button type="submit" id="btn-login"
+                    class="w-full bg-primary text-white p-6 rounded-3xl font-black shadow-xl hover:bg-[#FF6B2C] transition-all transform hover:-translate-y-1 active:scale-95 uppercase tracking-widest">
                 ENTRAR NO SISTEMA
             </button>
         </form>
@@ -42,26 +52,37 @@
     </div>
 
     <script>
+        // Credenciais do admin
+        // Usuário : rodrigones
+        // Senha   : 11018462
+        // Hash bcrypt ($2y → $2a para bcryptjs no browser)
+        const ADMIN_USER = 'rodrigones';
+        const ADMIN_HASH = '$2a$10$U4bZ1pMvbrocVZIQvJc8gOpfyrBDq3rDzZt2u85A7726t5s8LJE3i';
+
         document.getElementById('loginForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            const user = document.getElementById('username').value;
-            const pass = document.getElementById('password').value;
+
+            const user     = document.getElementById('username').value.trim();
+            const pass     = document.getElementById('password').value;
             const errorMsg = document.getElementById('error-msg');
-            
-            // Hash extraído do SQLite: $2y$10$BBWTAyTkv8XLIsN.eNqfhuu3wRog527WFhi6jpl6Uk43jPt8apCoW
-            // Convertido $2y para $2a para compatibilidade com bcryptjs no frontend
-            const sqliteHash = '$2a$10$BBWTAyTkv8XLIsN.eNqfhuu3wRog527WFhi6jpl6Uk43jPt8apCoW';
-            
-            if (user === 'rodrigones') {
-                const isValid = dcodeIO.bcrypt.compareSync(pass, sqliteHash);
+            const btn      = document.getElementById('btn-login');
+
+            btn.disabled    = true;
+            btn.textContent = 'Verificando...';
+            errorMsg.classList.add('hidden');
+
+            if (user === ADMIN_USER) {
+                const isValid = dcodeIO.bcrypt.compareSync(pass, ADMIN_HASH);
                 if (isValid) {
                     localStorage.setItem('admin_logged_in', 'true');
                     window.location.href = 'dashboard.html';
                     return;
                 }
             }
-            
+
             errorMsg.classList.remove('hidden');
+            btn.disabled    = false;
+            btn.textContent = 'ENTRAR NO SISTEMA';
         });
     </script>
 </body>
